@@ -1,0 +1,83 @@
+# Configuration for Apex optimization example
+max_iterations: 150
+checkpoint_interval: 15
+log_level: "DEBUG"
+
+# LLM configuration optimized for Apex development
+llm:
+  primary_model: "gpt-4o"
+  primary_model_weight: 0.7
+  secondary_model: "gpt-4o-mini"
+  secondary_model_weight: 0.3
+  api_base: "https://api.openai.com/v1"
+  temperature: 0.4  # Even lower temperature for strict format compliance
+  top_p: 0.9
+  max_tokens: 6000  # Higher token limit for complex Apex code
+
+# Prompt configuration for Apex development
+prompt:
+  system_message: "You are an expert Salesforce Apex developer and architect with deep knowledge of performance optimization, governor limits, and Salesforce best practices. Your task is to optimize Apex code for maximum efficiency while staying within Salesforce governor limits. Focus on eliminating SOQL queries in loops, reducing DML operations, optimizing algorithmic complexity, and following Salesforce development best practices. Consider patterns like bulk operations, efficient data structures, proper exception handling, and scalable design patterns. IMPORTANT: When suggesting code changes, you MUST use the exact SEARCH/REPLACE diff format with <<<<<<< SEARCH, =======, and >>>>>>> REPLACE markers. Each SEARCH block must exactly match existing code."
+  num_top_programs: 4
+  num_diverse_programs: 2
+  use_template_stochasticity: true
+  template_variations:
+    improvement_suggestion:
+      - "Here are specific optimizations for this Apex code:"
+      - "To improve this Salesforce implementation:"
+      - "Consider these performance enhancements:"
+      - "Apply these governor limit optimizations:"
+
+# Database configuration for Apex evolution
+database:
+  population_size: 75
+  archive_size: 25
+  num_islands: 4
+  elite_selection_ratio: 0.15
+  exploration_ratio: 0.25
+  exploitation_ratio: 0.60
+  
+  # Migration settings for diverse solutions
+  migration_interval: 25
+  migration_rate: 0.15
+  
+  # Feature dimensions specific to Apex performance
+  feature_dimensions: ["overall_score", "governor_compliance_score"]
+  feature_bins: 8
+
+# Evaluator configuration for Apex performance
+evaluator:
+  timeout: 90  # Longer timeout for complex analysis
+  max_retries: 3
+  cascade_evaluation: true
+  cascade_thresholds: [0.4, 0.7]  # More lenient first threshold for complex patterns
+  parallel_evaluations: 3
+  use_llm_feedback: false  # Rely on static analysis for Apex
+
+# Evolution settings optimized for Apex
+diff_based_evolution: true
+allow_full_rewrites: true  # Allow full rewrites for major algorithmic changes
+max_code_length: 15000  # Larger limit for comprehensive Apex classes
+
+# Apex-specific evolution parameters
+apex_optimization:
+  focus_areas:
+    - "governor_limits"
+    - "soql_optimization" 
+    - "dml_bulk_operations"
+    - "algorithmic_complexity"
+    - "memory_efficiency"
+    - "exception_handling"
+    - "code_maintainability"
+  
+  anti_patterns_priority:
+    - "soql_in_loops"      # Highest priority
+    - "dml_in_loops"       # High priority  
+    - "nested_loops"       # Medium priority
+    - "excessive_complexity" # Medium priority
+  
+  best_practices_weight:
+    bulk_operations: 0.3
+    efficient_queries: 0.2
+    proper_error_handling: 0.15
+    code_modularity: 0.15
+    governor_awareness: 0.2 
