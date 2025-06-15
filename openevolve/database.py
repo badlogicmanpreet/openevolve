@@ -493,9 +493,30 @@ class ProgramDatabase:
         if "combined_score" in program1.metrics and "combined_score" in program2.metrics:
             return program1.metrics["combined_score"] > program2.metrics["combined_score"]
 
-        # Fallback to average of all numeric metrics
-        avg1 = safe_numeric_average(program1.metrics)
-        avg2 = safe_numeric_average(program2.metrics)
+        # Check for overall_score as second preference
+        if "overall_score" in program1.metrics and "overall_score" in program2.metrics:
+            return program1.metrics["overall_score"] > program2.metrics["overall_score"]
+
+        # Fallback to average of ONLY normalized score metrics (0-1 range)
+        # Exclude raw performance numbers, penalties, and large-scale metrics
+        score_metrics = [
+            "basic_quality_check", "syntax_valid", "has_evolve_blocks", 
+            "cpu_efficiency_score", "memory_efficiency_score", "governor_compliance_score",
+            "code_quality_score", "scalability_score", "overall_score",
+            "best_practices_bonus", "complexity_score", "efficiency_consistency"
+        ]
+        
+        def get_score_average(metrics):
+            score_values = []
+            for key in score_metrics:
+                if key in metrics and isinstance(metrics[key], (int, float)):
+                    val = float(metrics[key])
+                    if not (val != val):  # Check for NaN
+                        score_values.append(val)
+            return sum(score_values) / len(score_values) if score_values else 0.0
+        
+        avg1 = get_score_average(program1.metrics)
+        avg2 = get_score_average(program2.metrics)
 
         return avg1 > avg2
 
