@@ -530,7 +530,13 @@ class ProgramDatabase:
         # If we don't have a best program yet, this becomes the best
         if self.best_program_id is None:
             self.best_program_id = program.id
-            logger.debug(f"Set initial best program to {program.id}")
+            logger.info(f"Set initial best program to {program.id} with score {safe_numeric_average(program.metrics):.4f}")
+            return
+
+        # Ensure the current best program still exists
+        if self.best_program_id not in self.programs:
+            logger.warning(f"Best program {self.best_program_id} no longer exists, resetting to new program {program.id}")
+            self.best_program_id = program.id
             return
 
         # Compare with current best program
@@ -541,16 +547,24 @@ class ProgramDatabase:
             old_id = self.best_program_id
             self.best_program_id = program.id
 
-            # Log the change
+            # Log the change with detailed metrics
             if "combined_score" in program.metrics and "combined_score" in current_best.metrics:
                 old_score = current_best.metrics["combined_score"]
                 new_score = program.metrics["combined_score"]
                 score_diff = new_score - old_score
                 logger.info(
-                    f"New best program {program.id} replaces {old_id} (combined_score: {old_score:.4f} → {new_score:.4f}, +{score_diff:.4f})"
+                    f"🆕 New best program {program.id} replaces {old_id} (combined_score: {old_score:.4f} → {new_score:.4f}, +{score_diff:.4f})"
                 )
             else:
-                logger.info(f"New best program {program.id} replaces {old_id}")
+                old_avg = safe_numeric_average(current_best.metrics)
+                new_avg = safe_numeric_average(program.metrics)
+                logger.info(f"🆕 New best program {program.id} replaces {old_id} (avg score: {old_avg:.4f} → {new_avg:.4f})")
+        else:
+            # Log when a program is not better for debugging
+            if logger.isEnabledFor(logging.DEBUG):
+                current_score = safe_numeric_average(current_best.metrics)
+                new_score = safe_numeric_average(program.metrics)
+                logger.debug(f"Program {program.id} (score: {new_score:.4f}) not better than best {self.best_program_id} (score: {current_score:.4f})")
 
     def _sample_parent(self) -> Program:
         """
@@ -723,13 +737,18 @@ class ProgramDatabase:
             key=lambda p: safe_numeric_average(p.metrics),
         )
 
-        # Remove worst programs, but never remove the best program
+        # Remove worst programs, but never remove the best program or archive programs
         programs_to_remove = []
+        protected_ids = set()
+        if self.best_program_id:
+            protected_ids.add(self.best_program_id)
+        protected_ids.update(self.archive)
+        
         for program in sorted_programs:
             if len(programs_to_remove) >= num_to_remove:
                 break
-            # Don't remove the best program
-            if program.id != self.best_program_id:
+            # Don't remove protected programs (best or archive)
+            if program.id not in protected_ids:
                 programs_to_remove.append(program)
 
         # If we still need to remove more and only have the best program protected,

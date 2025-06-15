@@ -10,6 +10,15 @@ from typing import Dict, List, Optional, Union
 BASE_SYSTEM_TEMPLATE = """You are an expert software developer tasked with iteratively improving a codebase.
 Your job is to analyze the current program and suggest improvements based on feedback from previous attempts.
 Focus on making targeted changes that will increase the program's performance metrics.
+
+CRITICAL: When making changes, you MUST follow the exact SEARCH/REPLACE diff format:
+<<<<<<< SEARCH
+[exact existing code]
+=======
+[improved code]
+>>>>>>> REPLACE
+
+Never use code blocks, explanations without diffs, or any other format. Your response will be automatically parsed and invalid formats will cause failures.
 """
 
 BASE_EVALUATOR_SYSTEM_TEMPLATE = """You are an expert code reviewer.
@@ -33,15 +42,16 @@ DIFF_USER_TEMPLATE = """# Current Program Information
 # Task
 Suggest improvements to the program that will lead to better performance on the specified metrics.
 
-You MUST use the exact SEARCH/REPLACE diff format shown below to indicate changes:
+🚨 **CRITICAL FORMAT REQUIREMENT** 🚨
+You MUST use EXACTLY this SEARCH/REPLACE diff format. No variations allowed:
 
 <<<<<<< SEARCH
-# Original code to find and replace (must match exactly)
+[Original code to find and replace - must match exactly]
 =======
-# New replacement code
+[New replacement code]
 >>>>>>> REPLACE
 
-Example of valid diff format:
+✅ **CORRECT Example:**
 <<<<<<< SEARCH
 for i in range(m):
     for j in range(p):
@@ -55,10 +65,19 @@ for i in range(m):
             C[i, j] += A[i, k] * B[k, j]
 >>>>>>> REPLACE
 
-You can suggest multiple changes. Each SEARCH section must exactly match code in the current program.
-Be thoughtful about your changes and explain your reasoning thoroughly.
+❌ **INCORRECT Examples:**
+- Using ```{language} code blocks
+- Using different markers like ### or ***
+- Explaining changes without the exact format
+- Missing any of the required markers
 
-IMPORTANT: Do not rewrite the entire program - focus on targeted improvements.
+**RULES:**
+1. Each SEARCH section must exactly match existing code (including whitespace)
+2. You can suggest multiple SEARCH/REPLACE blocks
+3. Focus on targeted improvements, not full rewrites
+4. Always explain your reasoning after the diffs
+
+**MANDATORY:** Your response must contain at least one valid SEARCH/REPLACE block or it will be rejected.
 """
 
 # User message template for full rewrite

@@ -213,6 +213,10 @@ class OpenEvolve:
         )  # Dynamic allocation
         current_island_counter = 0
 
+        # Track consecutive diff parsing failures for better fallback
+        consecutive_diff_failures = 0
+        max_consecutive_failures = 3
+
         logger.info(f"Using island-based evolution with {self.config.database.num_islands} islands")
         self.database.log_island_status()
 
@@ -233,6 +237,12 @@ class OpenEvolve:
             # Get artifacts for the parent program if available
             parent_artifacts = self.database.get_artifacts(parent.id)
 
+            # Decide on evolution strategy based on consecutive failures
+            force_full_rewrite = (
+                consecutive_diff_failures >= max_consecutive_failures 
+                or self.config.allow_full_rewrites
+            )
+            
             # Build prompt
             prompt = self.prompt_sampler.build_prompt(
                 current_program=parent.code,
@@ -242,7 +252,7 @@ class OpenEvolve:
                 top_programs=[p.to_dict() for p in inspirations],
                 language=self.language,
                 evolution_round=i,
-                allow_full_rewrite=self.config.allow_full_rewrites,
+                allow_full_rewrite=force_full_rewrite,
                 program_artifacts=parent_artifacts if parent_artifacts else None,
             )
 
@@ -254,18 +264,34 @@ class OpenEvolve:
                 )
 
                 # Parse the response
-                if self.config.diff_based_evolution:
+                if self.config.diff_based_evolution and not force_full_rewrite:
                     diff_blocks = extract_diffs(llm_response)
 
                     if not diff_blocks:
+                        consecutive_diff_failures += 1
                         logger.warning(f"Iteration {i+1}: No valid diffs found in response")
-                        continue
-
-                    # Apply the diffs
-                    child_code = apply_diff(parent.code, llm_response)
-                    changes_summary = format_diff_summary(diff_blocks)
+                        logger.warning(f"Consecutive diff failures: {consecutive_diff_failures}/{max_consecutive_failures}")
+                        
+                        # Try full rewrite fallback immediately if we've hit the limit
+                        if consecutive_diff_failures >= max_consecutive_failures:
+                            logger.warning(f"Failed to parse diffs {max_consecutive_failures} times in a row, trying full rewrite")
+                            new_code = parse_full_rewrite(llm_response, self.language)
+                            if new_code:
+                                child_code = new_code
+                                changes_summary = "Full rewrite (fallback from diff failures)"
+                                consecutive_diff_failures = 0  # Reset on successful parse
+                            else:
+                                logger.warning(f"Iteration {i+1}: Full rewrite fallback also failed")
+                                continue
+                        else:
+                            continue
+                    else:
+                        # Apply the diffs
+                        child_code = apply_diff(parent.code, llm_response)
+                        changes_summary = format_diff_summary(diff_blocks)
+                        consecutive_diff_failures = 0  # Reset on successful diff parsing
                 else:
-                    # Parse full rewrite
+                    # Parse full rewrite (either forced or config-based)
                     new_code = parse_full_rewrite(llm_response, self.language)
 
                     if not new_code:
@@ -274,6 +300,7 @@ class OpenEvolve:
 
                     child_code = new_code
                     changes_summary = "Full rewrite"
+                    consecutive_diff_failures = 0  # Reset on successful parse
 
                 # Check code length
                 if len(child_code) > self.config.max_code_length:
